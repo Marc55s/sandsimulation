@@ -1,24 +1,22 @@
-#include "raylib.h"
-#include "rlgl.h"
 #include <stdio.h>
 #include <stdlib.h>
-#define TILES_SIZE 1
+#include "mouse.h"
+#include "particle.h"
+#include "raylib.h"
+#include "rlgl.h"
+
+#define TILES_SIZE 5
 
 const int screenWidth = 800;
-const int screenHeight = 450;
+const int screenHeight = 600;
 
-Rectangle empty_rect = {0};
 
-int rect_isempty(Rectangle rect) {
-    return (rect.x == 0 && rect.y == 0 && rect.width == 0 && rect.height == 0);
-}
-
-void init_grid(Rectangle ***grid) {
+void init_grid(particle_t ***grid) {
     int rows = screenHeight / TILES_SIZE;
     int cols = screenWidth / TILES_SIZE;
 
     // Allocate memory for the grid of pointers
-    *grid = (Rectangle **)MemAlloc(rows * sizeof(Rectangle *));
+    *grid = (particle_t **)MemAlloc(rows * sizeof(particle_t *));
     if (*grid == NULL) {
         perror("Failed to allocate memory for grid rows");
         exit(EXIT_FAILURE);
@@ -26,7 +24,7 @@ void init_grid(Rectangle ***grid) {
 
     // Allocate memory for each row
     for (int i = 0; i < rows; i++) {
-        (*grid)[i] = (Rectangle *)MemAlloc(cols * sizeof(Rectangle));
+        (*grid)[i] = (particle_t *)MemAlloc(cols * sizeof(particle_t));
         if ((*grid)[i] == NULL) {
             perror("Failed to allocate memory for grid columns");
             exit(EXIT_FAILURE);
@@ -36,11 +34,12 @@ void init_grid(Rectangle ***grid) {
     // Initialize the grid with empty_rect
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
-            (*grid)[i][j] = empty_rect;
+            (*grid)[i][j].type = EMPTY;
         }
     }
 }
-void update_grid(Rectangle **grid) {
+
+void update_grid(particle_t  **grid) {
     int rows = screenHeight / TILES_SIZE;
     int cols = screenWidth / TILES_SIZE;
 
@@ -48,72 +47,106 @@ void update_grid(Rectangle **grid) {
     for (int i = rows - 1; i >= 0; i--) {
         for (int j = 0; j < cols; j++) {
 
-            if (rect_isempty(grid[i][j])) {
+            if (!grid[i][j].type) {
                 continue;
+            }
+            switch (grid[i][j].type) {
+                case EMPTY:
+                    break;
+                case SAND:
+                    break;
+                case WATER:
+                    break;
+                case STONE:
+                    break;
             }
 
             // Check bounds before accessing grid elements
-            if (i + 1 < rows && rect_isempty(grid[i + 1][j])) {
+            if (i + 1 < rows && !(grid[i + 1][j].type)) {
                 // Move down if free
                 grid[i + 1][j] = grid[i][j];
-                grid[i][j] = empty_rect;
-            } else if (i + 1 < rows  && j + 1 < cols - 1 &&
-                rect_isempty(grid[i + 1][j + 1])) {
+                grid[i][j].type = 0;
+            } else if (i + 1 < rows && j + 1 < cols && !(grid[i + 1][j + 1].type)) {
                 // Move diagonally right if free
                 grid[i + 1][j + 1] = grid[i][j];
-                grid[i][j] = empty_rect;
-            } else if (i + 1 < rows  && j - 1 >= 0 &&
-                rect_isempty(grid[i + 1][j - 1])) {
+                grid[i][j].type = 0;
+            } else if (i + 1 < rows && j - 1 >= 0 && !(grid[i + 1][j - 1].type)) {
                 // Move diagonally left if free
                 grid[i + 1][j - 1] = grid[i][j];
-                grid[i][j] = empty_rect;
+                grid[i][j].type = EMPTY;
             }
         }
     }
 }
 
-void draw_grid(Rectangle **grid) {
+void draw_grid(particle_t **grid) {
     for (int i = 0; i < screenHeight / TILES_SIZE; i++) {
         for (int j = 0; j < screenWidth / TILES_SIZE; j++) {
-            Rectangle rect = grid[i][j];
-            if (!rect_isempty(rect))
-                DrawRectangle(j * rect.height, i * rect.width, rect.width, rect.height,
-                              GOLD);
+            int particle = grid[i][j].type;
+            Color color;
+            switch (particle) {
+                case EMPTY:
+                    continue;
+                case SAND:
+                    color = GOLD;
+                    break;
+                case WATER:
+                    color = BLUE;
+                    break;
+            }
+            DrawRectangle(j * TILES_SIZE, i * TILES_SIZE, TILES_SIZE, TILES_SIZE,
+                          color);
         }
     }
 }
 
-void spawn(Rectangle **grid) {
-    for (int j = 30-1; j < 30; j++) {
+void spawn(particle_t **grid) {
+    grid[0][(screenWidth / TILES_SIZE) / 2].type = SAND;
+    grid[0][(screenWidth / TILES_SIZE) / 2].state= SOLID;
+}
+
+void set_particle_in_grid(particle_t **grid, int x, int y, enum particle_type type) {
+    grid[y / TILES_SIZE][x / TILES_SIZE].type = type;
+}
+
+void set_particles_in_grid(particle_t **grid, Rectangle rect,
+                           enum particle_type type) {
+    for (int y = rect.y; y < rect.y + rect.height && y >= 0 && y < screenHeight;
+    y++) {
+        for (int x = rect.x; x < rect.x + rect.width && x >= 0 && x < screenWidth;
+        x++) {
+            set_particle_in_grid(grid, x, y, type);
+        }
     }
-    grid[0][screenWidth/2] = (Rectangle){0, 0, TILES_SIZE, TILES_SIZE};
 }
 
 int main(void) {
-    // Initialization
-    //--------------------------------------------------------------------------------------
 
     InitWindow(screenWidth, screenHeight, "ParticleSimualation");
-    Rectangle **grid;
+    SetTargetFPS(60);
+
+    particle_t **grid;
     init_grid(&grid);
 
-    SetTargetFPS(60); // Set our game to run at 60 frames-per-second
-    //--------------------------------------------------------------------------------------
+    Rectangle r = {0, 0, 0, 0};
 
     // Main game loop
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
         BeginDrawing();
-
         ClearBackground(BLACK);
-        DrawFPS(0, 30);
         spawn(grid);
+        DrawFPS(0, 30);
+        container(&r);
+
+        if (!IsMouseButtonDown(0)) {
+            set_particles_in_grid(grid, r, SAND);
+        }
 
         update_grid(grid);
         draw_grid(grid);
 
         EndDrawing();
-        //----------------------------------------------------------------------------------
     }
 
     CloseWindow(); // Close window and OpenGL context

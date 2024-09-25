@@ -8,7 +8,7 @@ RAYLIB_PATH = /usr/local/lib
 CFLAGS = -Wall -std=c99 -I$(RAYLIB_PATH)/include
 LDFLAGS = -L$(RAYLIB_PATH) -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 # Source files
-SRC = main.c
+SRC = main.c mouse.c particle.c
 
 # Output executable
 OUT = game
