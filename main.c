@@ -92,6 +92,7 @@ void draw_grid(Particle_t **grid) {
                 case EMPTY:
                     continue;
                 case SAND:
+                    //color = GOLD;
                     color = particle.color;
                     break;
                 case WATER:
@@ -117,6 +118,9 @@ void spawn(Particle_t **grid) {
 
 void set_particle_in_grid(Particle_t **grid, int x, int y, enum particle_type type) {
     grid[y / TILES_SIZE][x / TILES_SIZE].type = type;
+    int randomG = 190 + rand() % 40;
+    Color color = (Color){255,randomG,0,255};
+    grid[y / TILES_SIZE][x / TILES_SIZE].color = color;
 }
 
 void set_particles_in_grid(Particle_t **grid, Rectangle rect,
