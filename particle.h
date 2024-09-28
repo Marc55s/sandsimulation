@@ -1,3 +1,8 @@
+#include <stdbool.h>
+#include <raylib.h>
+
+#ifndef PARTICLE_H
+#define PARTICLE_H
 enum particle_type {
     EMPTY,
     SAND,
@@ -16,4 +21,7 @@ typedef struct particle{
     enum state_type state;
     bool isFalling;
     bool isLiquid;
-} particle_t;
+    int dispersionRate;
+    Color color;
+} Particle_t;
+#endif
