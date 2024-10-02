@@ -1,16 +1,15 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include "mouse.h"
 #include "particle.h"
-#include "util.h"
 #include "raylib.h"
 #include "rlgl.h"
+#include "util.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 #define TILES_SIZE 5
 
 const int screenWidth = 800;
 const int screenHeight = 600;
-
 
 void init_grid(Particle_t ***grid) {
     int rows = screenHeight / TILES_SIZE;
@@ -40,7 +39,7 @@ void init_grid(Particle_t ***grid) {
     }
 }
 
-void update_grid(Particle_t  **grid) {
+void update_grid(Particle_t **grid) {
     int rows = screenHeight / TILES_SIZE;
     int cols = screenWidth / TILES_SIZE;
     Particle_t **nextGrid;
@@ -50,6 +49,7 @@ void update_grid(Particle_t  **grid) {
     // Iterate from the bottom row to the top row
     for (int i = rows - 1; i >= 0; i--) {
         for (int j = 0; j < cols; j++) {
+            int disp_max = nextGrid[i][j].dispersionRate;
 
             switch (nextGrid[i][j].type) {
                 case EMPTY:
@@ -60,19 +60,44 @@ void update_grid(Particle_t  **grid) {
                     if (i + 1 < rows && !(nextGrid[i + 1][j].type)) {
                         // Move down if free
                         nextGrid[i + 1][j] = nextGrid[i][j];
-                        nextGrid[i][j].type = 0;
-                    } else if (i + 1 < rows && j + 1 < cols && !(nextGrid[i + 1][j + 1].type)) {
+                        nextGrid[i][j].type = EMPTY;
+                    } else if (i + 1 < rows && j + 1 < cols &&
+                        !(nextGrid[i + 1][j + 1].type)) {
                         // Move diagonally right if free
                         nextGrid[i + 1][j + 1] = nextGrid[i][j];
-                        nextGrid[i][j].type = 0;
-                    } else if (i + 1 < rows && j - 1 >= 0 && !(nextGrid[i + 1][j - 1].type)) {
+                        nextGrid[i][j].type = EMPTY;
+                    } else if (i + 1 < rows && j - 1 >= 0 &&
+                        !(nextGrid[i + 1][j - 1].type)) {
                         // Move diagonally left if free
                         nextGrid[i + 1][j - 1] = nextGrid[i][j];
                         nextGrid[i][j].type = EMPTY;
                     }
-
                     break;
                 case WATER:
+                    // Check bounds before accessing grid elements
+                    // with dispersion the particle goes far abroader to left and right
+                    // to essentially move down if possible
+                    if (i + 1 < rows && !(nextGrid[i + 1][j].type)) {
+                        // Move down if free
+                        nextGrid[i + 1][j] = nextGrid[i][j];
+                        nextGrid[i][j].type = EMPTY;
+                    } else {
+                        for (int dispersion = 1; dispersion < disp_max; dispersion++) {
+                            if (i + 1 < rows && j + dispersion < cols &&
+                                !(nextGrid[i + 1][j + dispersion].type)) {
+                                // Move diagonally right if free
+                                nextGrid[i + 1][j + dispersion] = nextGrid[i][j];
+                                nextGrid[i][j].type = EMPTY;
+                                break;
+                            } else if (i + 1 < rows && j - dispersion >= 0 &&
+                                !(nextGrid[i + 1][j - dispersion].type)) {
+                                // Move diagonally left if free
+                                nextGrid[i + 1][j - dispersion] = nextGrid[i][j];
+                                nextGrid[i][j].type = EMPTY;
+                                break;
+                            }
+                        }
+                    }
                     break;
                 case STONE:
                     break;
@@ -92,14 +117,14 @@ void draw_grid(Particle_t **grid) {
                 case EMPTY:
                     continue;
                 case SAND:
-                    //color = GOLD;
+                    // color = GOLD;
                     color = particle.color;
                     break;
                 case WATER:
                     color = BLUE;
                     break;
                 case STONE:
-                    //TODO add color
+                    // TODO add color
                     break;
             }
             DrawRectangle(j * TILES_SIZE, i * TILES_SIZE, TILES_SIZE, TILES_SIZE,
@@ -109,17 +134,19 @@ void draw_grid(Particle_t **grid) {
 }
 
 void spawn(Particle_t **grid) {
-    grid[0][(screenWidth / TILES_SIZE) / 2].type = SAND;
+    grid[0][(screenWidth / TILES_SIZE) / 2].type = WATER;
+    grid[0][(screenWidth / TILES_SIZE) / 2].dispersionRate = 5;
     int randomG = 190 + rand() % 40;
-    Color color = (Color){255,randomG,0,255};
+    Color color = (Color){255, randomG, 0, 255};
     grid[0][(screenWidth / TILES_SIZE) / 2].color = color;
-    grid[0][(screenWidth / TILES_SIZE) / 2].state= SOLID;
+    grid[0][(screenWidth / TILES_SIZE) / 2].state = SOLID;
 }
 
-void set_particle_in_grid(Particle_t **grid, int x, int y, enum particle_type type) {
+void set_particle_in_grid(Particle_t **grid, int x, int y,
+                          enum particle_type type) {
     grid[y / TILES_SIZE][x / TILES_SIZE].type = type;
     int randomG = 190 + rand() % 40;
-    Color color = (Color){255,randomG,0,255};
+    Color color = (Color){255, randomG, 0, 255};
     grid[y / TILES_SIZE][x / TILES_SIZE].color = color;
 }
 
