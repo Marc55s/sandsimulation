@@ -1,43 +1,22 @@
-#include "mouse.h"
-#include "particle.h"
+#include "../include/mouse.h"
+#include "../include/particle.h"
+#include "../include/config.h"
+#include "../include/util.h"
 #include "raylib.h"
 #include "rlgl.h"
-#include "util.h"
-#include <stdio.h>
 #include <stdlib.h>
-
-#define TILES_SIZE 5
 
 const int screenWidth = 800;
 const int screenHeight = 600;
 
-void init_grid(Particle_t ***grid) {
-    int rows = screenHeight / TILES_SIZE;
-    int cols = screenWidth / TILES_SIZE;
+/* TODOs ------------------------------------------------------------
+* TODO optimize dispersionRate updating
+* TODO add gravity
+* TODO update border rules -> if at border move to other side
+* TODO add logic for interacting between SAND and WATER
+* -------------------------------------------------------------------
+*/
 
-    // Allocate memory for the grid of pointers
-    *grid = (Particle_t **)MemAlloc(rows * sizeof(Particle_t *));
-    if (*grid == NULL) {
-        perror("Failed to allocate memory for grid rows");
-        exit(EXIT_FAILURE);
-    }
-
-    // Allocate memory for each row
-    for (int i = 0; i < rows; i++) {
-        (*grid)[i] = (Particle_t *)MemAlloc(cols * sizeof(Particle_t));
-        if ((*grid)[i] == NULL) {
-            perror("Failed to allocate memory for grid columns");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    // Initialize the grid with empty_rect
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            (*grid)[i][j].type = EMPTY;
-        }
-    }
-}
 
 void update_grid(Particle_t **grid) {
     int rows = screenHeight / TILES_SIZE;
@@ -49,59 +28,11 @@ void update_grid(Particle_t **grid) {
     // Iterate from the bottom row to the top row
     for (int i = rows - 1; i >= 0; i--) {
         for (int j = 0; j < cols; j++) {
-            int disp_max = nextGrid[i][j].dispersionRate;
-
-            switch (nextGrid[i][j].type) {
-                case EMPTY:
-                    continue;
-                    break;
-                case SAND:
-                    // Check bounds before accessing grid elements
-                    if (i + 1 < rows && !(nextGrid[i + 1][j].type)) {
-                        // Move down if free
-                        nextGrid[i + 1][j] = nextGrid[i][j];
-                        nextGrid[i][j].type = EMPTY;
-                    } else if (i + 1 < rows && j + 1 < cols &&
-                        !(nextGrid[i + 1][j + 1].type)) {
-                        // Move diagonally right if free
-                        nextGrid[i + 1][j + 1] = nextGrid[i][j];
-                        nextGrid[i][j].type = EMPTY;
-                    } else if (i + 1 < rows && j - 1 >= 0 &&
-                        !(nextGrid[i + 1][j - 1].type)) {
-                        // Move diagonally left if free
-                        nextGrid[i + 1][j - 1] = nextGrid[i][j];
-                        nextGrid[i][j].type = EMPTY;
-                    }
-                    break;
-                case WATER:
-                    // Check bounds before accessing grid elements
-                    // with dispersion the particle goes far abroader to left and right
-                    // to essentially move down if possible
-                    if (i + 1 < rows && !(nextGrid[i + 1][j].type)) {
-                        // Move down if free
-                        nextGrid[i + 1][j] = nextGrid[i][j];
-                        nextGrid[i][j].type = EMPTY;
-                    } else {
-                        for (int dispersion = 1; dispersion < disp_max; dispersion++) {
-                            if (i + 1 < rows && j + dispersion < cols &&
-                                !(nextGrid[i + 1][j + dispersion].type)) {
-                                // Move diagonally right if free
-                                nextGrid[i + 1][j + dispersion] = nextGrid[i][j];
-                                nextGrid[i][j].type = EMPTY;
-                                break;
-                            } else if (i + 1 < rows && j - dispersion >= 0 &&
-                                !(nextGrid[i + 1][j - dispersion].type)) {
-                                // Move diagonally left if free
-                                nextGrid[i + 1][j - dispersion] = nextGrid[i][j];
-                                nextGrid[i][j].type = EMPTY;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-                case STONE:
-                    break;
+            //skip EMPTY,STONE type
+            if(nextGrid[i][j].type == EMPTY || nextGrid[i][j].type == STONE){
+                continue;
             }
+            update_particle(nextGrid, i, j, rows, cols);
         }
     }
     copy_grid(nextGrid, grid, rows, cols);
@@ -121,10 +52,10 @@ void draw_grid(Particle_t **grid) {
                     color = particle.color;
                     break;
                 case WATER:
-                    color = BLUE;
+                    color = particle.color;
                     break;
                 case STONE:
-                    // TODO add color
+                    color = particle.color;
                     break;
             }
             DrawRectangle(j * TILES_SIZE, i * TILES_SIZE, TILES_SIZE, TILES_SIZE,
@@ -136,33 +67,14 @@ void draw_grid(Particle_t **grid) {
 void spawn(Particle_t **grid) {
     grid[0][(screenWidth / TILES_SIZE) / 2].type = WATER;
     grid[0][(screenWidth / TILES_SIZE) / 2].dispersionRate = 5;
-    int randomG = 190 + rand() % 40;
-    Color color = (Color){255, randomG, 0, 255};
+    Color color = BLUE;
+    randomize_color(&color, 5);
     grid[0][(screenWidth / TILES_SIZE) / 2].color = color;
     grid[0][(screenWidth / TILES_SIZE) / 2].state = SOLID;
 }
 
-void set_particle_in_grid(Particle_t **grid, int x, int y,
-                          enum particle_type type) {
-    grid[y / TILES_SIZE][x / TILES_SIZE].type = type;
-    int randomG = 190 + rand() % 40;
-    Color color = (Color){255, randomG, 0, 255};
-    grid[y / TILES_SIZE][x / TILES_SIZE].color = color;
-}
-
-void set_particles_in_grid(Particle_t **grid, Rectangle rect,
-                           enum particle_type type) {
-    for (int y = rect.y; y < rect.y + rect.height && y >= 0 && y < screenHeight;
-    y++) {
-        for (int x = rect.x; x < rect.x + rect.width && x >= 0 && x < screenWidth;
-        x++) {
-            set_particle_in_grid(grid, x, y, type);
-        }
-    }
-}
-
 int main(void) {
-
+    srand(23);
     InitWindow(screenWidth, screenHeight, "ParticleSimualation");
     SetTargetFPS(60);
 
@@ -171,6 +83,7 @@ int main(void) {
 
     Rectangle r = {0, 0, 0, 0};
 
+    Particle_t p = (Particle_t) {STONE, SOLID, false,false,0,PINK};
     // Main game loop
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
@@ -181,7 +94,7 @@ int main(void) {
         container(&r);
 
         if (!IsMouseButtonDown(0)) {
-            set_particles_in_grid(grid, r, SAND);
+            set_rectangle_in_grid(grid, r, p);
         }
 
         update_grid(grid);
