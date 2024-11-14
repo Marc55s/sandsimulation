@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include "raylib.h"
-#include "mouse.h"
+#include "../include/mouse.h"
 
 int diffx, diffy;
 

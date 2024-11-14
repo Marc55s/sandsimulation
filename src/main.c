@@ -66,7 +66,7 @@ void draw_grid(Particle_t **grid) {
 
 void spawn(Particle_t **grid) {
     grid[0][(screenWidth / TILES_SIZE) / 2].type = WATER;
-    grid[0][(screenWidth / TILES_SIZE) / 2].dispersionRate = 5;
+    grid[0][(screenWidth / TILES_SIZE) / 2].dispersionRate = 10;
     Color color = BLUE;
     randomize_color(&color, 5);
     grid[0][(screenWidth / TILES_SIZE) / 2].color = color;
